@@ -93,7 +93,15 @@ The following object types are currently supported for export/deploy:
 - ACCESS_PROFILE
 - ROLE
 
-## Contributing
+## Implementation Options
+
+There are two options for utilizing this repository/tool for ISC configuration management:
+
+- Fork this repository and run the `npm` commands right out of it
+- Clone the repository into a working directory via CI/CD pipeline and run the npm commands (separates core ODT tooling from tenant configuration repository)
+    - There are example GitHub Actions workflow definitions in the [.github/workflows](.github/workflows) directory
+
+## Setup
 
 This a NodeJS project that was written on NodeJS 18. You will need NodeJS installed prior to using this tool. Find the latest NodeJS download here: https://nodejs.org/en/download
 
@@ -162,37 +170,6 @@ export default [
 
 - `tenant-features.js` - Holds entries for any special licensed features which may break export or deployment processes due to APIs not being available. The following entries are supported (with `true`/`false` values):
     - machineIdentity - Machine Identity Security (MIS) feature support
-
-### Code Formatting
-
-This project uses Prettier to format all JavaScript/JSON. You should install the Prettier VSCode extension or use the npm command `format` as defined in the `package.json`. It's expected all code be formatted with the local Prettier config in this project.
-
-### Git Exclude
-
-When contributing, you will most likely be running export/deploy commands frequently to test. Defining the follow git exclude file will prevent config/target files from being committed:
-
-```
-# git ls-files --others --exclude-from=.git/info/exclude
-# Lines that start with '#' are comments.
-# For a project mostly in C, the following would be a good set of
-# exclude patterns (uncomment them if you want to use them):
-# *.[oa]
-# *~
-config/
-*.target.js
-reverse.target.js
-connectorLib/
-connectors/
-assets/
-```
-
-## Implementation Options
-
-There are two options for utilizing this repository/tool for ISC configuration management:
-
-- Fork this repository and run the `npm` commands right out of it
-- Clone the repository into a working directory via CI/CD pipeline and run the npm commands (separates core ODT tooling from tenant configuration repository)
-    - There are example GitHub Actions workflow definitions in the [.github/workflows](.github/workflows) directory
 
 ## Project Structure
 
@@ -349,6 +326,33 @@ Below is a reference for all arguments for the commands above
 ## Custom SaaS Connectors
 
 ODT supports compiling and deploying custom TypeScript SaaS connectors per [SailPoint's SaaS connector framework](https://developer.sailpoint.com/docs/connectivity/saas-connectivity). The presence of a TypeScript/NodeJS project inside of the `./connectors` directory within your ODT repository will automatically include it for compilation and deployment. Source deployments are also automated to lookup the connector deployed and referenced it when possible.
+
+## Contribution
+
+Some basic guidelines to follow if you plan on contributing to the tool.
+
+### Code Formatting
+
+This project uses Prettier to format all JavaScript/JSON. You should install the Prettier VSCode extension or use the npm command `format` as defined in the `package.json`. It's expected all code be formatted with the local Prettier config in this project.
+
+### Git Exclude
+
+When contributing, you will most likely be running export/deploy commands frequently to test. Defining the follow git exclude file will prevent config/target files from being committed:
+
+```
+# git ls-files --others --exclude-from=.git/info/exclude
+# Lines that start with '#' are comments.
+# For a project mostly in C, the following would be a good set of
+# exclude patterns (uncomment them if you want to use them):
+# *.[oa]
+# *~
+config/
+*.target.js
+reverse.target.js
+connectorLib/
+connectors/
+assets/
+```
 
 ## Configuration Object Guidelines/Considerations
 
