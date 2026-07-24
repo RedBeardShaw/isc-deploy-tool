@@ -1,7 +1,7 @@
 import clc from "cli-color";
 import * as fs from "fs";
 import _ from "lodash";
-import { Paginator, ParameterStorageV2025Api } from "sailpoint-api-client";
+import { Paginator, ParameterStorageApi } from "sailpoint-api-client";
 import winston from "winston";
 import { handleHttpException, walk, writeConfigFile } from "../util.js";
 
@@ -13,9 +13,9 @@ let parameterStorageCache = {};
 const getParameterStorageById = async (apiConfig, parameterId) => {
     if (parameterStorageCache[parameterId]) return parameterStorageCache[parameterId];
 
-    const parameterStorageApi = new ParameterStorageV2025Api(apiConfig);
+    const parameterStorageApi = new ParameterStorageApi(apiConfig);
     const parameterResponse = await parameterStorageApi
-        .getParameter(
+        .getParameterV1(
             { id: parameterId },
             {
                 headers: {
@@ -38,9 +38,9 @@ const getParameterStorageById = async (apiConfig, parameterId) => {
 const getParameterStorageByName = async (apiConfig, parameterName) => {
     if (parameterStorageCache[parameterName]) return parameterStorageCache[parameterName];
 
-    const parameterStorageApi = new ParameterStorageV2025Api(apiConfig);
+    const parameterStorageApi = new ParameterStorageApi(apiConfig);
     const parameterResponse = await parameterStorageApi
-        .searchParameters(
+        .searchParametersV1(
             { filters: `name eq "${parameterName}"`, limit: 1 },
             {
                 headers: {

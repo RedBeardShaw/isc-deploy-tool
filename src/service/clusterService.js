@@ -3,7 +3,7 @@ import { ManagedClustersApi } from "sailpoint-api-client";
 const getAllClusters = async apiConfig => {
     const clusterApi = new ManagedClustersApi(apiConfig);
 
-    const clusterResponse = await clusterApi.getManagedClusters();
+    const clusterResponse = await clusterApi.getManagedClustersV1();
 
     if (!clusterResponse || clusterResponse.data.length === 0) {
         throw new Error(

@@ -9,7 +9,7 @@ const BRANDING_CONFIG = "BRANDING_CONFIG";
 const exportBranding = async apiConfig => {
     winston.info(clc.bgBlueBright("Starting Branding Export"));
     const brandingApi = new BrandingApi(apiConfig);
-    const brandingConfigResponse = await brandingApi.getBrandingList();
+    const brandingConfigResponse = await brandingApi.getBrandingListV1();
     writeConfigFile(BRANDING_CONFIG, BRANDING_CONFIG, brandingConfigResponse.data);
 };
 
@@ -41,12 +41,13 @@ const updateBranding = async (apiConfig, targetEnvName) => {
             //Check and see if a branding config with this name already exists in the target environment
             let currentTargetBrandingConfig;
             try {
-                const currentTargetBrandingConfigResponse = await brandingApi.getBranding({
+                const currentTargetBrandingConfigResponse = await brandingApi.getBrandingV1({
                     name: localBrandingConfig.name,
                 });
                 currentTargetBrandingConfig = currentTargetBrandingConfigResponse.data;
             } catch (error) {
-                if (error.response.status === 404) {
+                const status = error?.status ?? error?.response?.status;
+                if (status === 404) {
                     winston.debug(`Branding Config [${localBrandingConfig.name}] does not exist yet`);
                 } else {
                     handleHttpException(error);
@@ -56,7 +57,7 @@ const updateBranding = async (apiConfig, targetEnvName) => {
             if (!currentTargetBrandingConfig) {
                 winston.info(`Creating new branding config for: ${localBrandingConfig.name}`);
                 try {
-                    const createBrandingConfigResponse = await brandingApi.createBrandingItem({
+                    const createBrandingConfigResponse = await brandingApi.createBrandingItemV1({
                         name: localBrandingConfig.name,
                         productName: localBrandingConfig.productName,
                         actionButtonColor:
@@ -88,7 +89,7 @@ const updateBranding = async (apiConfig, targetEnvName) => {
             } else {
                 winston.info(`Updating existing branding config: ${localBrandingConfig.name}`);
                 const res = await brandingApi
-                    .setBrandingItem({
+                    .setBrandingItemV1({
                         name: localBrandingConfig.name,
                         name2: localBrandingConfig.name,
                         productName: localBrandingConfig.productName,

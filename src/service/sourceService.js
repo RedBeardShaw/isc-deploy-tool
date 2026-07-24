@@ -4,13 +4,11 @@ import axios from "axios";
 import _ from "lodash";
 import {
     Configuration,
-    ConnectorsBetaApi,
+    ConnectorsApi,
     Paginator,
     SourcesApi,
-    SourcesBetaApi,
-    SourcesV2025Api,
-    MachineClassificationConfigV2025Api,
-    MachineAccountMappingsV2025Api,
+    MachineClassificationConfigApi,
+    MachineAccountMappingsApi,
 } from "sailpoint-api-client";
 import winston from "winston";
 import { handleHttpException, sleep, walk, writeConfigFile } from "../util.js";
@@ -58,7 +56,7 @@ const getSourceByName = async (apiConfig, sourceName) => {
 
     const sourcesApi = new SourcesApi(apiConfig);
     const currentSourceResponse = await sourcesApi
-        .listSources({
+        .listSourcesV1({
             filters: `name eq "${sourceName}"`,
             limit: 1,
         })
@@ -78,7 +76,7 @@ const getSourceById = async (apiConfig, sourceId) => {
 
     const sourcesApi = new SourcesApi(apiConfig);
     const currentSourceResponse = await sourcesApi
-        .listSources({
+        .listSourcesV1({
             filters: `id eq "${sourceId}"`,
             limit: 1,
         })
@@ -102,12 +100,10 @@ const getSourceById = async (apiConfig, sourceId) => {
 const exportSources = async apiConfig => {
     winston.info(clc.bgBlueBright("Starting Source Export"));
     const sourcesApi = new SourcesApi(apiConfig);
-    const sourcesApiBeta = new SourcesBetaApi(apiConfig);
-    const sourcesV2025Api = new SourcesV2025Api(apiConfig);
-    const machineClassificationApi = new MachineClassificationConfigV2025Api(apiConfig);
-    const machineMappingApi = new MachineAccountMappingsV2025Api(apiConfig);
+    const machineClassificationApi = new MachineClassificationConfigApi(apiConfig);
+    const machineMappingApi = new MachineAccountMappingsApi(apiConfig);
 
-    const sources = await Paginator.paginate(sourcesApi, sourcesApi.listSources, undefined, 250).catch(error => {
+    const sources = await Paginator.paginate(sourcesApi, sourcesApi.listSourcesV1, undefined, 250).catch(error => {
         handleHttpException(error);
     });
     for (const source of sources.data) {
@@ -117,8 +113,8 @@ const exportSources = async apiConfig => {
         winston.info(`Exporting Source: ${source.name} (${source.id})`);
 
         //Get and write referenced correlation config on source (non-sdk at the moment)
-        const sourceCorrelationConfigResponse = await sourcesApiBeta.getCorrelationConfig({
-            sourceId: source.id,
+        const sourceCorrelationConfigResponse = await sourcesApi.getCorrelationConfigV1({
+            id: source.id,
         });
 
         const sourceCorrelationConfig = sourceCorrelationConfigResponse.data;
@@ -133,7 +129,7 @@ const exportSources = async apiConfig => {
         }
 
         //Get and write referenced schemas on source
-        const sourceSchemas = await sourcesApi.getSourceSchemas({ sourceId: source.id }).catch(error => {
+        const sourceSchemas = await sourcesApi.getSourceSchemasV1({ sourceId: source.id }).catch(error => {
             handleHttpException(error);
         });
         for (const schema of sourceSchemas.data) {
@@ -142,7 +138,7 @@ const exportSources = async apiConfig => {
         }
 
         //Get and write referenced policies on source
-        const sourcePolicies = await sourcesApi.listProvisioningPolicies({ sourceId: source.id }).catch(error => {
+        const sourcePolicies = await sourcesApi.listProvisioningPoliciesV2({ sourceId: source.id }).catch(error => {
             handleHttpException(error);
         });
         for (const policy of sourcePolicies.data) {
@@ -152,7 +148,7 @@ const exportSources = async apiConfig => {
         }
 
         //Attribute Sync Config
-        const attrSyncConfigResponse = await sourcesApiBeta.getSourceAttrSyncConfig({ id: source.id });
+        const attrSyncConfigResponse = await sourcesApi.getSourceAttrSyncConfigV1({ id: source.id });
         if (attrSyncConfigResponse.data) {
             winston.info(`Exporting attribute sync config for source: ${sourceName}`);
             const attrSyncFileName = sourceName + "_ATTR_SYNC";
@@ -165,7 +161,9 @@ const exportSources = async apiConfig => {
         }
 
         //Native Change Config
-        const nativeChangeConfigResponse = await sourcesApiBeta.getNativeChangeDetectionConfig({ sourceId: source.id });
+        const nativeChangeConfigResponse = await sourcesApi.getNativeChangeDetectionConfigV1({
+            sourceId: source.id,
+        });
         if (nativeChangeConfigResponse.data) {
             winston.info(`Exporting native change detection config for source: ${sourceName}`);
             const nativeChangeFileName = `${sourceName}_${NATIVE_CHANGE_DETECTION}`;
@@ -178,7 +176,7 @@ const exportSources = async apiConfig => {
         }
 
         //Aggregation Schedule
-        const sourceSchedules = await sourcesV2025Api.getSourceSchedules({ sourceId: source.id }).catch(error => {
+        const sourceSchedules = await sourcesApi.getSourceSchedulesV1({ sourceId: source.id }).catch(error => {
             handleHttpException(error);
         });
         for (const schedule of sourceSchedules.data) {
@@ -192,12 +190,12 @@ const exportSources = async apiConfig => {
         }
 
         //Machine classification config
-        //Bug in sdk, have to do this manually. machineClassificationApi.getMachineClassificationConfig({ id: source.id });
+        //Bug in sdk, have to do this manually. machineClassificationApi.getMachineClassificationConfigV1({ id: source.id });
         if (tenantFeatures.machineIdentity) {
             try {
                 const machineClassificationConfigResponse = await axios.request({
                     method: "get",
-                    url: `${apiConfig.basePath}/v2025/sources/${source.id}/machine-classification-config`,
+                    url: `${apiConfig.basePath}/sources/v1/${source.id}/machine-classification-config`,
                     headers: {
                         Authorization: `Bearer ${await apiConfig.accessToken}`,
                         "X-SailPoint-Experimental": "true",
@@ -222,7 +220,7 @@ const exportSources = async apiConfig => {
             try {
                 const machineMappingConfigResponse = await axios.request({
                     method: "get",
-                    url: `${apiConfig.basePath}/v2025/sources/${source.id}/machine-account-mappings`,
+                    url: `${apiConfig.basePath}/sources/v1/${source.id}/machine-account-mappings`,
                     headers: {
                         Authorization: `Bearer ${await apiConfig.accessToken}`,
                         "X-SailPoint-Experimental": "true",
@@ -247,7 +245,7 @@ const exportSources = async apiConfig => {
             try {
                 const machineSubtypesResponse = await axios.request({
                     method: "get",
-                    url: `${apiConfig.basePath}/v2025/sources/${source.id}/subtypes`,
+                    url: `${apiConfig.basePath}/sources/v1/${source.id}/subtypes`,
                     headers: {
                         Authorization: `Bearer ${await apiConfig.accessToken}`,
                         "X-SailPoint-Experimental": "true",
@@ -292,9 +290,7 @@ const exportSources = async apiConfig => {
  */
 const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
     const sourcesApi = new SourcesApi(apiConfig);
-    const betaSourcesApi = new SourcesBetaApi(apiConfig);
-    const connectorsApi = new ConnectorsBetaApi(apiConfig);
-    const sourcesV2025Api = new SourcesV2025Api(apiConfig);
+    const connectorsApi = new ConnectorsApi(apiConfig);
 
     let localSource = JSON.parse(sourceJson);
     let saasSourceConnectorAttributesCopy;
@@ -326,7 +322,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
 
     //Check and see if a source with this name already exists in the target environment
     const currentSourceResponse = await sourcesApi
-        .listSources({
+        .listSourcesV1({
             filters: `name eq "${localSource.name}"`,
             limit: 1,
         })
@@ -379,7 +375,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
 
             /* When deploying a custom SaaS source, follow these rules:
             * New source is deployed with attribute "connector" like so: connector: "7a74eb93-bff6-4c70-80c1-9d800ac793cd" 
-            * the value is the 'type' in the connector entry via the GET /beta/connectors endpoint
+            * the value is the 'type' in the connector entry via the GET /connectors endpoint
             * All the other attributes related to the connector then reference the same value (i.e. connectorId, connectorImplementationId, etc.)
             * These are not omitted on export, but are  retained on import if source exists already
             * 
@@ -409,7 +405,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
             const customConnectorIdRegex =
                 /^[a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}$/;
             if (customConnectorIdRegex.test(localSource.connector)) {
-                const connectorResponse = await connectorsApi.getConnectorList({
+                const connectorResponse = await connectorsApi.getConnectorListV1({
                     limit: 1,
                     filters: `name sw "${localSource.connectorName}"`, //Endpoint only supports sw, not eq
                 });
@@ -418,7 +414,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
                     _.set(localSource, "connector", connectorTypeId);
                 } else if (connectorResponse.data.length === 0) {
                     winston.error(
-                        `Could not find connector type via GET /beta/connectors for custom SaaS source type [${connectorName}]`
+                        `Could not find connector type via GET /connectors for custom SaaS source type [${connectorName}]`
                     );
                     process.exit(1);
                 }
@@ -429,7 +425,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
         winston.debug(JSON.stringify(localSource, null, 4));
 
         try {
-            const createSourceResponse = await sourcesApi.createSource({
+            const createSourceResponse = await sourcesApi.createSourceV1({
                 source: localSource,
                 provisionAsCsv: csvSource,
             });
@@ -470,9 +466,9 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
 
             winston.info(`Updating source correlation configuration`);
             try {
-                const sourceCorrelationConfigResponse = await betaSourcesApi.putCorrelationConfig({
-                    sourceId: currentTargetSource.id,
-                    correlationConfigBeta: correlationConfigCopy,
+                const sourceCorrelationConfigResponse = await sourcesApi.putCorrelationConfigV1({
+                    id: currentTargetSource.id,
+                    correlationConfig: correlationConfigCopy,
                 });
 
                 await sleep(1000);
@@ -536,7 +532,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
 
             // Get all schemas from current target source
             let currentTargetSchemasResponse = await sourcesApi
-                .getSourceSchemas({
+                .getSourceSchemasV1({
                     sourceId: currentTargetSource.id,
                 })
                 .catch(error => {
@@ -595,7 +591,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
             //Get all policies from current target source
             let currentTargetPolicyResponse;
             currentTargetPolicyResponse = await sourcesApi
-                .listProvisioningPolicies({
+                .listProvisioningPoliciesV2({
                     sourceId: currentTargetSource.id,
                 })
                 .catch(error => {
@@ -611,10 +607,16 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
                             `Updating existing source provisioning policy: ${localSource.name} - ${policyCopy.name}`
                         );
                         try {
-                            await sourcesApi.putProvisioningPolicy({
+                            await sourcesApi.putProvisioningPolicyV2({
+                                id: currentPolicy.id,
                                 sourceId: currentTargetSource.id,
-                                usageType: currentPolicy.usageType,
-                                provisioningPolicyDto: policyCopy,
+                                provisioningPolicyDtoV2: {
+                                    id: currentPolicy.id,
+                                    name: policyCopy.name,
+                                    description: policyCopy.description,
+                                    usageType: policyCopy.usageType,
+                                    fields: policyCopy.fields,
+                                },
                             });
                         } catch (error) {
                             await handleHttpException(error);
@@ -631,9 +633,14 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
             if (createPolicy) {
                 winston.info(`Creating new source provisioning policy: ${localSource.name} - ${policyCopy.name}`);
                 try {
-                    await sourcesApi.createProvisioningPolicy({
+                    await sourcesApi.createProvisioningPolicyV2({
                         sourceId: currentTargetSource.id,
-                        provisioningPolicyDto: policyCopy,
+                        provisioningPolicyDtoV2: {
+                            name: policyCopy.name,
+                            description: policyCopy.description,
+                            usageType: policyCopy.usageType,
+                            fields: policyCopy.fields,
+                        },
                     });
                 } catch (error) {
                     await handleHttpException(error);
@@ -651,9 +658,9 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
             if (attrSyncCopy.attributes && attrSyncCopy.attributes.length > 0) {
                 try {
                     winston.info(`Updating source attribute sync config`);
-                    await betaSourcesApi.putSourceAttrSyncConfig({
+                    await sourcesApi.putSourceAttrSyncConfigV1({
                         id: currentTargetSource.id,
-                        attrSyncSourceConfigBeta: attrSyncCopy,
+                        attrSyncSourceConfig: attrSyncCopy,
                     });
                 } catch (error) {
                     await handleHttpException(error);
@@ -668,9 +675,9 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
 
             try {
                 winston.info(`Updating source native change detection config`);
-                await betaSourcesApi.putNativeChangeDetectionConfig({
+                await sourcesApi.putNativeChangeDetectionConfigV1({
                     sourceId: currentTargetSource.id,
-                    nativeChangeDetectionConfigBeta: nativeChangeCopy,
+                    nativeChangeDetectionConfig: nativeChangeCopy,
                 });
             } catch (error) {
                 await handleHttpException(error);
@@ -685,7 +692,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
 
             //Get all schedules from current target source
             let currentTargetScheduleResponse;
-            currentTargetScheduleResponse = await sourcesV2025Api
+            currentTargetScheduleResponse = await sourcesApi
                 .getSourceSchedules({
                     sourceId: currentTargetSource.id,
                 })
@@ -700,10 +707,10 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
                         //Update schedule
                         winston.info(`Updating existing source schedule: ${localSource.name} - ${scheduleCopy.type}`);
                         try {
-                            await sourcesV2025Api.updateSourceSchedule({
+                            await sourcesApi.updateSourceScheduleV1({
                                 sourceId: currentTargetSource.id,
                                 scheduleType: currentSchedule.type,
-                                jsonPatchOperationV2025: [
+                                jsonPatchOperation: [
                                     {
                                         op: "replace",
                                         path: "/cronExpression",
@@ -726,9 +733,9 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
             if (createSchedule) {
                 winston.info(`Creating new source schedule: ${localSource.name} - ${scheduleCopy.type}`);
                 try {
-                    await sourcesV2025Api.createSourceSchedule({
+                    await sourcesApi.createSourceScheduleV1({
                         sourceId: currentTargetSource.id,
-                        schedule1V2025: {
+                        schedule1: {
                             type: scheduleCopy.type,
                             cronExpression: scheduleCopy.cronExpression,
                         },
@@ -754,7 +761,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
                 try {
                     await axios.request({
                         method: "put",
-                        url: `${apiConfig.basePath}/v2025/sources/${currentTargetSource.id}/machine-classification-config`,
+                        url: `${apiConfig.basePath}/sources/v1/${currentTargetSource.id}/machine-classification-config`,
                         headers: {
                             Authorization: `Bearer ${await apiConfig.accessToken}`,
                             "X-SailPoint-Experimental": "true",
@@ -783,7 +790,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
                             ? transformDefinition.attributes.sourceName
                             : transformDefinition.attributes.input.attributes.sourceName;
                         const mappingSourceResponse = await sourcesApi
-                            .listSources({
+                            .listSourcesV1({
                                 filters: `name eq "${mappingSourceName}"`,
                                 limit: 1,
                             })
@@ -809,7 +816,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
                 try {
                     await axios.request({
                         method: "put",
-                        url: `${apiConfig.basePath}/v2025/sources/${currentTargetSource.id}/machine-account-mappings`,
+                        url: `${apiConfig.basePath}/sources/v1/${currentTargetSource.id}/machine-account-mappings`,
                         headers: {
                             Authorization: `Bearer ${await apiConfig.accessToken}`,
                             "X-SailPoint-Experimental": "true",
@@ -833,7 +840,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
                     try {
                         const machineSubtypeResponse = await axios.request({
                             method: "get",
-                            url: `${apiConfig.basePath}/v2025/sources/${currentTargetSource.id}/subtypes/${localSubtype.technicalName}`,
+                            url: `${apiConfig.basePath}/sources/v1/${currentTargetSource.id}/subtypes/${localSubtype.technicalName}`,
                             headers: {
                                 Authorization: `Bearer ${await apiConfig.accessToken}`,
                                 "X-SailPoint-Experimental": "true",
@@ -841,7 +848,8 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
                         });
                         currentTargetSubtype = machineSubtypeResponse.data;
                     } catch (error) {
-                        if (error.response.status === 404) {
+                        const status = error?.status ?? error?.response?.status;
+                        if (status === 404) {
                             winston.debug(`Subtype [${localSubtype.technicalName}] does not exist yet`);
                         } else {
                             handleHttpException(error);
@@ -853,7 +861,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
                             winston.info(`Creating new subtype: ${localSubtype.technicalName}`);
                             const createResponse = await axios.request({
                                 method: "post",
-                                url: `${apiConfig.basePath}/v2025/sources/${currentTargetSource.id}/subtypes`,
+                                url: `${apiConfig.basePath}/sources/v1/${currentTargetSource.id}/subtypes`,
                                 headers: {
                                     Authorization: `Bearer ${await apiConfig.accessToken}`,
                                     "X-SailPoint-Experimental": "true",
@@ -875,7 +883,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
                         try {
                             await axios.request({
                                 method: "patch",
-                                url: `${apiConfig.basePath}/v2025/sources/${currentTargetSource.id}/subtypes/${currentTargetSubtype.technicalName}`,
+                                url: `${apiConfig.basePath}/sources/v1/${currentTargetSource.id}/subtypes/${currentTargetSubtype.technicalName}`,
                                 headers: {
                                     Authorization: `Bearer ${await apiConfig.accessToken}`,
                                     "X-SailPoint-Experimental": "true",
@@ -932,7 +940,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
                     const fileStream = fs.createReadStream(fullFilePath);
 
                     /* Couldn't get this working, had to make call ourselves below
-                    await sourcesApi.importConnectorFile({
+                    await sourcesApi.importConnectorFileV1({
                         sourceId: currentTargetSource.id,
                         file: fileStream
                     });
@@ -972,7 +980,7 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
         winston.info(`Updating existing source: ${currentTargetSource.name} (${currentTargetSource.id})`);
         winston.debug(JSON.stringify(localSource, null, 4));
         try {
-            await sourcesApi.putSource({
+            await sourcesApi.putSourceV1({
                 id: currentTargetSource.id,
                 source: localSource,
             });
@@ -1007,7 +1015,7 @@ const processSchema = async (api, localSource, currentTargetSource, localSchemaF
 
         winston.info(`Updating existing source schema: ${localSource.name} - ${schemaCopy.name}`);
         try {
-            await api.putSourceSchema({
+            await api.putSourceSchemaV1({
                 schema: schemaCopy,
                 schemaId: currentSchema.id,
                 sourceId: currentTargetSource.id,
@@ -1030,7 +1038,7 @@ const processSchema = async (api, localSource, currentTargetSource, localSchemaF
     if (createSchema) {
         winston.info(`Creating new source schema: ${localSource.name} - ${schemaCopy.name}`);
         try {
-            const createSchemaResponse = await api.createSourceSchema({
+            const createSchemaResponse = await api.createSourceSchemaV1({
                 schema: schemaCopy,
                 sourceId: currentTargetSource.id,
             });

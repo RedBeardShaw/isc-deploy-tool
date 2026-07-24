@@ -1,7 +1,7 @@
 import clc from "cli-color";
 import * as fs from "fs";
 import _ from "lodash";
-import { GovernanceGroupsBetaApi, IdentitiesBetaApi, Paginator } from "sailpoint-api-client";
+import { GovernanceGroupsApi, IdentitiesApi, Paginator } from "sailpoint-api-client";
 import winston from "winston";
 import { handleHttpException, walk, writeConfigFile } from "../util.js";
 
@@ -15,9 +15,9 @@ let govGroupCache = {};
 const getIdentityByAlias = async (apiConfig, identityAlias) => {
     if (identityCache[identityAlias]) return identityCache[identityAlias];
 
-    const identityApi = new IdentitiesBetaApi(apiConfig);
+    const identityApi = new IdentitiesApi(apiConfig);
     const identityResponse = await identityApi
-        .listIdentities({
+        .listIdentitiesV1({
             filters: `alias eq "${identityAlias}"`,
             defaultFilter: "NONE", //Show hidden SailPoint identities
         })
@@ -36,9 +36,9 @@ const getIdentityByAlias = async (apiConfig, identityAlias) => {
 const getIdentityById = async (apiConfig, identityId) => {
     if (identityCache[identityId]) return identityCache[identityId];
 
-    const identityApi = new IdentitiesBetaApi(apiConfig);
+    const identityApi = new IdentitiesApi(apiConfig);
     const identityResponse = await identityApi
-        .listIdentities({
+        .listIdentitiesV1({
             filters: `id eq "${identityId}"`,
             defaultFilter: "NONE", //Show hidden SailPoint identities
         })
@@ -56,9 +56,9 @@ const getIdentityById = async (apiConfig, identityId) => {
 const getGovGroupByName = async (apiConfig, govGroupName) => {
     if (govGroupCache[govGroupName]) return govGroupCache[govGroupName];
 
-    const govGroupApi = new GovernanceGroupsBetaApi(apiConfig);
+    const govGroupApi = new GovernanceGroupsApi(apiConfig);
     const govGroupResponse = await govGroupApi
-        .listWorkgroups({
+        .listWorkgroupsV1({
             filters: `name eq "${govGroupName}"`,
         })
         .catch(error => {
@@ -77,7 +77,7 @@ const getGovGroupByName = async (apiConfig, govGroupName) => {
 const getGovGroupById = async (apiConfig, govGroupId) => {
     if (govGroupCache[govGroupId]) return govGroupCache[govGroupId];
 
-    const govGroupApi = new GovernanceGroupsBetaApi(apiConfig);
+    const govGroupApi = new GovernanceGroupsApi(apiConfig);
     const govGroupResponse = await govGroupApi
         .getWorkgroup({
             id: govGroupId,
@@ -97,8 +97,8 @@ const getGovGroupById = async (apiConfig, govGroupId) => {
 
 const exportGovernanceGroups = async apiConfig => {
     winston.info(clc.bgBlueBright("Starting Governance Group Export"));
-    const govGroupApi = new GovernanceGroupsBetaApi(apiConfig);
-    const govGroupsResponse = await Paginator.paginate(govGroupApi, govGroupApi.listWorkgroups, undefined, 250).catch(
+    const govGroupApi = new GovernanceGroupsApi(apiConfig);
+    const govGroupsResponse = await Paginator.paginate(govGroupApi, govGroupApi.listWorkgroupsV1, undefined, 250).catch(
         error => {
             handleHttpException(error);
         }
@@ -110,7 +110,7 @@ const exportGovernanceGroups = async apiConfig => {
 };
 
 const migrateGovernanceGroup = async (apiConfig, govGroupJson) => {
-    const govGroupApi = new GovernanceGroupsBetaApi(apiConfig);
+    const govGroupApi = new GovernanceGroupsApi(apiConfig);
     let localGovGroup = JSON.parse(govGroupJson);
 
     //Looks up owner identity by tokenized alias
@@ -122,7 +122,7 @@ const migrateGovernanceGroup = async (apiConfig, govGroupJson) => {
 
     //Check and see if a gov group with this name already exists in the target environment
     const currentGovGroupResponse = await govGroupApi
-        .listWorkgroups({
+        .listWorkgroupsV1({
             filters: `name eq "${localGovGroup.name}"`,
         })
         .catch(error => {
@@ -133,8 +133,8 @@ const migrateGovernanceGroup = async (apiConfig, govGroupJson) => {
     if (!currentTargetGovGroup) {
         winston.info(`Creating new governance group/workgroup: ${localGovGroup.name}`);
         const createGovGroupResponse = await govGroupApi
-            .createWorkgroup({
-                workgroupDtoBeta: {
+            .createWorkgroupV1({
+                workgroupDto: {
                     name: localGovGroup.name,
                     description: localGovGroup.description,
                     owner: localGovGroup.owner,
@@ -155,9 +155,9 @@ const migrateGovernanceGroup = async (apiConfig, govGroupJson) => {
 
         //Update the gov group with all config, references, etc.
         await govGroupApi
-            .patchWorkgroup({
+            .patchWorkgroupV1({
                 id: currentTargetGovGroup.id,
-                jsonPatchOperationBeta: [
+                jsonPatchOperation: [
                     {
                         op: "replace",
                         path: "/description",

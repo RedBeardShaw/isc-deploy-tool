@@ -1,9 +1,9 @@
-import { EntitlementsV2025Api } from "sailpoint-api-client";
+import { EntitlementsApi } from "sailpoint-api-client";
 import { getSourceByName } from "./sourceService.js";
 
 const getEntitlementById = async (apiConfig, entitlementId) => {
-    const entitlementsApi = new EntitlementsV2025Api(apiConfig);
-    const entitlement = await entitlementsApi.getEntitlement({
+    const entitlementsApi = new EntitlementsApi(apiConfig);
+    const entitlement = await entitlementsApi.getEntitlementV1({
         id: entitlementId,
     });
 
@@ -32,8 +32,8 @@ const getEntitlementByName = async (apiConfig, sourceName, entitlementName, valu
     if (attribute != null) {
         filters.push(`attribute eq "${attribute}"`);
     }
-    const entitlementsApi = new EntitlementsV2025Api(apiConfig);
-    var entitlementResponse = await entitlementsApi.listEntitlements({
+    const entitlementsApi = new EntitlementsApi(apiConfig);
+    var entitlementResponse = await entitlementsApi.listEntitlementsV1({
         filters: filters.join(" and "),
         limit: 1,
     });
