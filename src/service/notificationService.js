@@ -1,7 +1,7 @@
 import clc from "cli-color";
 import * as fs from "fs";
 import _ from "lodash";
-import { NotificationsBetaApi, Paginator } from "sailpoint-api-client";
+import { NotificationsApi, Paginator } from "sailpoint-api-client";
 import winston from "winston";
 import { handleHttpException, walk, writeConfigFile } from "../util.js";
 
@@ -10,10 +10,10 @@ const existingAttributeToKeep = ["id"];
 
 const exportNotificationTemplates = async apiConfig => {
     winston.info(clc.bgBlueBright("Starting Notification Template Export"));
-    const notificationsBetaApi = new NotificationsBetaApi(apiConfig);
+    const notificationsApi = new NotificationsApi(apiConfig);
     const notificationTemplatesResponse = await Paginator.paginate(
-        notificationsBetaApi,
-        notificationsBetaApi.listNotificationTemplates,
+        notificationsApi,
+        notificationsApi.listNotificationTemplatesV1,
         undefined,
         250
     ).catch(error => {
@@ -26,12 +26,12 @@ const exportNotificationTemplates = async apiConfig => {
 };
 
 const migrateNotificationTemplate = async (apiConfig, templateJson) => {
-    const notificationsBetaApi = new NotificationsBetaApi(apiConfig);
+    const notificationsApi = new NotificationsApi(apiConfig);
     let localTemplate = JSON.parse(templateJson);
 
     //Check and see if a template with this name already exists in the target environment
-    const currentTemplateResponse = await notificationsBetaApi
-        .listNotificationTemplates({
+    const currentTemplateResponse = await notificationsApi
+        .listNotificationTemplatesV1({
             filters: `name eq "${localTemplate.name}"`,
         })
         .catch(error => {
@@ -42,8 +42,8 @@ const migrateNotificationTemplate = async (apiConfig, templateJson) => {
     if (!currentTargetTemplate) {
         winston.info(`Creating new notification template: ${localTemplate.name}`);
         try {
-            const createTemplateResponse = await notificationsBetaApi.createNotificationTemplate({
-                templateDtoBeta: {
+            const createTemplateResponse = await notificationsApi.createNotificationTemplateV1({
+                templateDto: {
                     key: localTemplate.key,
                     locale: localTemplate.locale,
                     medium: localTemplate.medium,
@@ -72,8 +72,8 @@ const migrateNotificationTemplate = async (apiConfig, templateJson) => {
         //Update the template with all config, references, etc.
         //Create endpoint also updates templates
         try {
-            await notificationsBetaApi.createNotificationTemplate({
-                templateDtoBeta: {
+            await notificationsApi.createNotificationTemplateV1({
+                templateDto: {
                     id: currentTargetTemplate.id,
                     key: localTemplate.key,
                     locale: localTemplate.locale,

@@ -14,7 +14,7 @@ const existingAttributeToKeep = ["id"];
 
 const getAccessProfileById = async (apiConfig, accessProfileId) => {
     const accessProfilesApi = new AccessProfilesApi(apiConfig);
-    const accessProfile = await accessProfilesApi.getAccessProfile({
+    const accessProfile = await accessProfilesApi.getAccessProfileV1({
         id: accessProfileId,
     });
 
@@ -29,7 +29,7 @@ const getAccessProfileById = async (apiConfig, accessProfileId) => {
 
 const getAccessProfileByName = async (apiConfig, accessProfileName) => {
     const accessProfilesApi = new AccessProfilesApi(apiConfig);
-    const accessProfileResponse = await accessProfilesApi.listAccessProfiles({
+    const accessProfileResponse = await accessProfilesApi.listAccessProfilesV1({
         filters: `name eq "${accessProfileName}"`,
         limit: 1,
     });
@@ -53,7 +53,7 @@ const exportAccessProfiles = async apiConfig => {
     const accessProfilesApi = new AccessProfilesApi(apiConfig);
     const accessProfiles = await Paginator.paginate(
         accessProfilesApi,
-        accessProfilesApi.listAccessProfiles,
+        accessProfilesApi.listAccessProfilesV1,
         undefined,
         250
     ).catch(error => {
@@ -202,7 +202,7 @@ const migrateAccessProfile = async (apiConfig, accessProfileJson) => {
 
     //Check if the access profile already exists
     const currentAccessProfileResponse = await accessProfilesApi
-        .listAccessProfiles({
+        .listAccessProfilesV1({
             filters: `name eq "${localAccessProfile.name}"`,
         })
         .catch(error => {
@@ -214,7 +214,7 @@ const migrateAccessProfile = async (apiConfig, accessProfileJson) => {
     if (!currentTargetAccessProfile) {
         winston.info(`Creating new access profile: ${localAccessProfile.name}`);
         try {
-            const createAccessProfileResponse = await accessProfilesApi.createAccessProfile({
+            const createAccessProfileResponse = await accessProfilesApi.createAccessProfileV1({
                 accessProfile: localAccessProfile,
             });
             currentTargetAccessProfile = createAccessProfileResponse.data;
@@ -297,7 +297,7 @@ const migrateAccessProfile = async (apiConfig, accessProfileJson) => {
 
         // perform the update
         try {
-            await accessProfilesApi.patchAccessProfile({
+            await accessProfilesApi.patchAccessProfileV1({
                 id: currentTargetAccessProfile.id,
                 jsonPatchOperation: patchOperations,
             });

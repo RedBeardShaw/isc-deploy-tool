@@ -1,7 +1,7 @@
 import clc from "cli-color";
 import * as fs from "fs";
 import _ from "lodash";
-import { ConnectorRuleManagementBetaApi, Paginator } from "sailpoint-api-client";
+import { ConnectorRuleManagementApi, Paginator } from "sailpoint-api-client";
 import winston from "winston";
 import { handleHttpException, runSpConfigExport, runSpConfigImport, walk, writeConfigFile } from "../util.js";
 
@@ -36,10 +36,10 @@ const getAllRules = async apiConfig => {
 const getAllConnectorRules = async apiConfig => {
     if (connectorRuleCache) return connectorRuleCache;
 
-    const connectorRuleManagementBetaApi = new ConnectorRuleManagementBetaApi(apiConfig);
+    const connectorRuleManagementApi = new ConnectorRuleManagementApi(apiConfig);
     const connectorRulesResponse = await Paginator.paginate(
-        connectorRuleManagementBetaApi,
-        connectorRuleManagementBetaApi.getConnectorRuleList,
+        connectorRuleManagementApi,
+        connectorRuleManagementApi.getConnectorRuleListV1,
         undefined,
         250
     ).catch(error => {
@@ -123,7 +123,7 @@ const migrateCloudRules = async apiConfig => {
 };
 
 const migrateConnectorRule = async (apiConfig, connectorRuleJson) => {
-    const connectorRuleManagementBetaApi = new ConnectorRuleManagementBetaApi(apiConfig);
+    const connectorRuleManagementApi = new ConnectorRuleManagementApi(apiConfig);
     let localConnectorRule = JSON.parse(connectorRuleJson);
 
     // skip rule if empty source code - api rejects create/update if empty string
@@ -144,8 +144,8 @@ const migrateConnectorRule = async (apiConfig, connectorRuleJson) => {
     if (!currentTargetConnectorRule) {
         winston.info(`Creating new connector rule: ${localConnectorRule.name}`);
         try {
-            const createConnectorRuleResponse = await connectorRuleManagementBetaApi.createConnectorRule({
-                connectorRuleCreateRequestBeta: {
+            const createConnectorRuleResponse = await connectorRuleManagementApi.createConnectorRuleV1({
+                connectorRuleCreateRequest: {
                     name: localConnectorRule.name,
                     sourceCode: localConnectorRule.sourceCode,
                     type: localConnectorRule.type,
@@ -170,9 +170,9 @@ const migrateConnectorRule = async (apiConfig, connectorRuleJson) => {
 
         //Update the connector rule with all config, references, etc.
         try {
-            await connectorRuleManagementBetaApi.updateConnectorRule({
+            await connectorRuleManagementApi.putConnectorRuleV1({
                 id: localConnectorRule.id,
-                connectorRuleUpdateRequestBeta: {
+                connectorRuleUpdateRequest: {
                     id: localConnectorRule.id,
                     name: localConnectorRule.name,
                     sourceCode: localConnectorRule.sourceCode,

@@ -1,11 +1,6 @@
 import clc from "cli-color";
 import * as fs from "fs";
-import {
-    GlobalTenantSecuritySettingsApi,
-    PasswordConfigurationApi,
-    PublicIdentitiesApi,
-    PublicIdentitiesConfigApi,
-} from "sailpoint-api-client";
+import { GlobalTenantSecuritySettingsApi, PasswordConfigurationApi, PublicIdentitiesApi, PublicIdentitiesConfigApi } from "sailpoint-api-client";
 import winston from "winston";
 import { handleHttpException, walk, writeConfigFile } from "../util.js";
 import path from "path";
@@ -24,28 +19,28 @@ const exportOrgConfigs = async apiConfig => {
     const passwordConfigApi = new PasswordConfigurationApi(apiConfig);
 
     winston.info("Exporting Network Org Config");
-    const networkConfigResponse = await globalTenantSecuritySettingsApi.getAuthOrgNetworkConfig();
+    const networkConfigResponse = await globalTenantSecuritySettingsApi.getAuthOrgNetworkConfigV1();
     writeConfigFile(ORG_CONFIG, NETWORK_ORG_CONFIG, networkConfigResponse.data);
 
     winston.info("Exporting Session Org Config");
-    const sessionConfigResponse = await globalTenantSecuritySettingsApi.getAuthOrgSessionConfig();
+    const sessionConfigResponse = await globalTenantSecuritySettingsApi.getAuthOrgSessionConfigV1();
     writeConfigFile(ORG_CONFIG, SESSION_ORG_CONFIG, sessionConfigResponse.data);
 
     winston.info("Exporting Lockout Org Config");
-    const lockoutConfigResponse = await globalTenantSecuritySettingsApi.getAuthOrgLockoutConfig();
+    const lockoutConfigResponse = await globalTenantSecuritySettingsApi.getAuthOrgLockoutConfigV1();
     writeConfigFile(ORG_CONFIG, LOCKOUT_ORG_CONFIG, lockoutConfigResponse.data);
 
     winston.info("Exporting Service Provider Org Config");
-    const serviceProviderConfigResponse = await globalTenantSecuritySettingsApi.getAuthOrgServiceProviderConfig();
+    const serviceProviderConfigResponse = await globalTenantSecuritySettingsApi.getAuthOrgServiceProviderConfigV1();
     writeConfigFile(ORG_CONFIG, SERVICE_PROVIDER_ORG_CONFIG, serviceProviderConfigResponse.data);
 
     winston.info("Exporting Password Org Config");
-    const passwordConfigResponse = await passwordConfigApi.getPasswordOrgConfig();
+    const passwordConfigResponse = await passwordConfigApi.getPasswordOrgConfigV1();
     writeConfigFile(ORG_CONFIG, PASSWORD_ORG_CONFIG, passwordConfigResponse.data);
 
     winston.info("Exporting Public Identities Org Config");
     const publicIdentitiesConfigApi = new PublicIdentitiesConfigApi(apiConfig);
-    const publicIdentitiesConfigResponse = await publicIdentitiesConfigApi.getPublicIdentityConfig();
+    const publicIdentitiesConfigResponse = await publicIdentitiesConfigApi.getPublicIdentityConfigV1();
     writeConfigFile(ORG_CONFIG, PUBLIC_IDENTITIES_ORG_CONFIG, publicIdentitiesConfigResponse.data);
 };
 
@@ -65,7 +60,7 @@ const migrateOrgConfigs = async apiConfig => {
             winston.info("Updating Password Org Config");
             const passwordConfigApi = new PasswordConfigurationApi(apiConfig);
             try {
-                await passwordConfigApi.putPasswordOrgConfig({
+                await passwordConfigApi.putPasswordOrgConfigV1({
                     passwordOrgConfig: localOrgConfigSource,
                 });
             } catch (error) {
@@ -74,7 +69,7 @@ const migrateOrgConfigs = async apiConfig => {
         } else if (fileName === NETWORK_ORG_CONFIG) {
             winston.info("Updating Network Org Config");
             try {
-                await globalTenantSecuritySettingsApi.patchAuthOrgNetworkConfig({
+                await globalTenantSecuritySettingsApi.patchAuthOrgNetworkConfigV1({
                     jsonPatchOperation: [
                         {
                             op: "replace",
@@ -99,7 +94,7 @@ const migrateOrgConfigs = async apiConfig => {
         } else if (fileName === SESSION_ORG_CONFIG) {
             winston.info("Updating Session Org Config");
             try {
-                await globalTenantSecuritySettingsApi.patchAuthOrgSessionConfig({
+                await globalTenantSecuritySettingsApi.patchAuthOrgSessionConfigV1({
                     jsonPatchOperation: [
                         {
                             op: "replace",
@@ -124,7 +119,7 @@ const migrateOrgConfigs = async apiConfig => {
         } else if (fileName === LOCKOUT_ORG_CONFIG) {
             winston.info("Updating Lockout Org Config");
             try {
-                await globalTenantSecuritySettingsApi.patchAuthOrgLockoutConfig({
+                await globalTenantSecuritySettingsApi.patchAuthOrgLockoutConfigV1({
                     jsonPatchOperation: [
                         {
                             op: "replace",
@@ -149,7 +144,7 @@ const migrateOrgConfigs = async apiConfig => {
         } else if (fileName === SERVICE_PROVIDER_ORG_CONFIG) {
             winston.info("Updating Service Provider Org Config");
             try {
-                await globalTenantSecuritySettingsApi.patchAuthOrgServiceProviderConfig({
+                await globalTenantSecuritySettingsApi.patchAuthOrgServiceProviderConfigV1({
                     jsonPatchOperation: [
                         {
                             op: "replace",
@@ -175,7 +170,7 @@ const migrateOrgConfigs = async apiConfig => {
             winston.info("Updating Public Identities Org Config");
             try {
                 const publicIdentitiesConfigApi = new PublicIdentitiesConfigApi(apiConfig);
-                const publicIdentitiesConfigResponse = await publicIdentitiesConfigApi.updatePublicIdentityConfig({
+                const publicIdentitiesConfigResponse = await publicIdentitiesConfigApi.updatePublicIdentityConfigV1({
                     publicIdentityConfig: localOrgConfigSource,
                 });
             } catch (error) {

@@ -1,7 +1,7 @@
 {
     "name": "isc-deploy-tool",
-    "version": "1.4.0",
-    "description": "Identity Security Cloud Deploy Tool",
+    "version": "1.7.0",
+    "description": "Identity Security Cloud Object Deploy Tool",
     "main": "index.js",
     "type": "module",
     "scripts": {
@@ -12,7 +12,7 @@
         "format:check": "prettier --check ."
     },
     "keywords": [],
-    "author": "Patrick Boston <patrick.boston@xalient.com>",
+    "author": "Patrick Boston <patrickboston8@gmail.com>",
     "license": "ISC",
     "dependencies": {
         "axios-debug-log": "^1.0.0",
@@ -21,7 +21,7 @@
         "jsonpath": "^1.1.1",
         "jsonpath-plus": "^10.2.0",
         "lodash": "^4.17.21",
-        "sailpoint-api-client": "1.7.20",
+        "sailpoint-api-client": "^2.0.0",
         "typescript": "^5.5.2",
         "winston": "^3.13.0"
     },

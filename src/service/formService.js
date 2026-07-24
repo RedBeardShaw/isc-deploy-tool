@@ -1,7 +1,7 @@
 import clc from "cli-color";
 import * as fs from "fs";
 import _ from "lodash";
-import { CustomFormsBetaApi, Paginator } from "sailpoint-api-client";
+import { CustomFormsApi, Paginator } from "sailpoint-api-client";
 import winston from "winston";
 import { handleHttpException, sleep, walk, writeConfigFile } from "../util.js";
 import { getIdentityByAlias, getIdentityById } from "./identityService.js";
@@ -14,9 +14,9 @@ let formCache = {};
 const getFormById = async (apiConfig, formId) => {
     if (formCache[formId]) return formCache[formId];
 
-    const formsApi = new CustomFormsBetaApi(apiConfig);
+    const formsApi = new CustomFormsApi(apiConfig);
     const formsResponse = await formsApi
-        .getFormDefinitionByKey({
+        .getFormDefinitionByKeyV1({
             formDefinitionID: formId,
         })
         .catch(error => {
@@ -34,9 +34,9 @@ const getFormById = async (apiConfig, formId) => {
 const getFormByName = async (apiConfig, formName) => {
     if (formCache[formName]) return formCache[formName];
 
-    const formsApi = new CustomFormsBetaApi(apiConfig);
+    const formsApi = new CustomFormsApi(apiConfig);
     const formsResponse = await formsApi
-        .exportFormDefinitionsByTenant({
+        .exportFormDefinitionsByTenantV1({
             filters: `name eq "${formName}"`,
         })
         .catch(error => {
@@ -53,10 +53,10 @@ const getFormByName = async (apiConfig, formName) => {
 
 const exportForms = async apiConfig => {
     winston.info(clc.bgBlueBright("Starting Form Export"));
-    const formsApi = new CustomFormsBetaApi(apiConfig);
+    const formsApi = new CustomFormsApi(apiConfig);
     const formsResponse = await Paginator.paginate(
         formsApi,
-        formsApi.exportFormDefinitionsByTenant,
+        formsApi.exportFormDefinitionsByTenantV1,
         undefined,
         250
     ).catch(error => {
@@ -81,7 +81,7 @@ const exportForms = async apiConfig => {
 };
 
 const migrateForm = async (apiConfig, formJson) => {
-    const formsApi = new CustomFormsBetaApi(apiConfig);
+    const formsApi = new CustomFormsApi(apiConfig);
     let localForm = JSON.parse(formJson);
 
     //Get corresponding owner by name and add id
@@ -89,7 +89,7 @@ const migrateForm = async (apiConfig, formJson) => {
     _.set(localForm, "owner.id", owner.id);
 
     //Check and see if a form with this name already exists in the target environment
-    const currentFormsResponse = await formsApi.exportFormDefinitionsByTenant({
+    const currentFormsResponse = await formsApi.exportFormDefinitionsByTenantV1({
         filters: `name eq "${localForm.name}"`,
     });
     let currentTargetForm = currentFormsResponse.data.length == 1 ? currentFormsResponse.data[0].object : null;
@@ -97,8 +97,8 @@ const migrateForm = async (apiConfig, formJson) => {
     if (!currentTargetForm) {
         winston.info(`Creating new form: ${localForm.name}`);
         try {
-            const createFormResponse = await formsApi.createFormDefinition({
-                createFormDefinitionRequestBeta: {
+            const createFormResponse = await formsApi.createFormDefinitionV1({
+                body: {
                     name: localForm.name,
                     description: localForm.description,
                     owner: localForm.owner,
@@ -171,7 +171,7 @@ const migrateForm = async (apiConfig, formJson) => {
         });
 
         try {
-            await formsApi.patchFormDefinition({
+            await formsApi.patchFormDefinitionV1({
                 formDefinitionID: currentTargetForm.id,
                 body: patchOperations,
             });

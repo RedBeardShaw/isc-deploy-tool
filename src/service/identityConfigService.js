@@ -1,7 +1,7 @@
 import clc from "cli-color";
 import * as fs from "fs";
 import _ from "lodash";
-import { IdentityAttributesBetaApi, IdentityProfilesApi, LifecycleStatesApi, SourcesApi } from "sailpoint-api-client";
+import { IdentityAttributesApi, IdentityProfilesApi, LifecycleStatesApi, SourcesApi } from "sailpoint-api-client";
 import winston from "winston";
 import { deepOmit, handleHttpException, walk, writeConfigFile } from "../util.js";
 import { getAccessProfileById, getAccessProfileByName } from "./accessProfileService.js";
@@ -22,8 +22,8 @@ const lifecycleStateExistingAttributeToKeep = ["id"];
  */
 const exportIdentityAttributeConfig = async apiConfig => {
     winston.info(clc.bgBlueBright("Starting Identity Attribute Configuration Export"));
-    const identityAttributesApi = new IdentityAttributesBetaApi(apiConfig);
-    const identityAttributeConfig = await identityAttributesApi.listIdentityAttributes().catch(error => {
+    const identityAttributesApi = new IdentityAttributesApi(apiConfig);
+    const identityAttributeConfig = await identityAttributesApi.listIdentityAttributesV1().catch(error => {
         handleHttpException(error);
     });
     writeConfigFile(IDENTITY_OBJECT_CONFIG, IDENTITY_OBJECT_CONFIG, identityAttributeConfig.data);
@@ -33,7 +33,7 @@ const exportIdentityProfiles = async apiConfig => {
     winston.info(clc.bgBlueBright("Starting Identity Profile Export"));
     const identityProfilesApi = new IdentityProfilesApi(apiConfig);
     const lifecycleStatesApi = new LifecycleStatesApi(apiConfig);
-    const identityProfiles = await identityProfilesApi.exportIdentityProfiles().catch(error => {
+    const identityProfiles = await identityProfilesApi.exportIdentityProfilesV1().catch(error => {
         handleHttpException(error);
     });
     for (let profile of identityProfiles.data) {
@@ -46,7 +46,7 @@ const exportIdentityProfiles = async apiConfig => {
 
         //Lifecycle states are attached to Identity Profiles so let's grab them
         const lifecycleStatesResponse = await lifecycleStatesApi
-            .getLifecycleStates({
+            .getLifecycleStatesV1({
                 identityProfileId: profile.self.id,
             })
             .catch(error => {
@@ -101,7 +101,7 @@ const exportIdentityProfiles = async apiConfig => {
 
 const migrateIdentityAttributeConfig = async apiConfig => {
     winston.info(clc.bgBlueBright("Starting Identity Attribute Configuration Deployment"));
-    const identityAttributesApi = new IdentityAttributesBetaApi(apiConfig);
+    const identityAttributesApi = new IdentityAttributesApi(apiConfig);
 
     const identityAttributeConfigFilePaths = walk("./build/config/IDENTITY_OBJECT_CONFIG");
 
@@ -115,12 +115,13 @@ const migrateIdentityAttributeConfig = async apiConfig => {
             //Check and see if a identity attribute with this name already exists in the target environment
             let currentTargetIdentityAttribute;
             try {
-                const currentIdentityAttributeResponse = await identityAttributesApi.getIdentityAttribute({
+                const currentIdentityAttributeResponse = await identityAttributesApi.getIdentityAttributeV1({
                     name: localIdentityAttribute.name,
                 });
                 currentTargetIdentityAttribute = currentIdentityAttributeResponse.data;
             } catch (error) {
-                if (error.response.status === 404) {
+                const status = error?.status ?? error?.response?.status;
+                if (status === 404) {
                     winston.debug(`Identity Attribute [${localIdentityAttribute.name}] does not exist yet`);
                 } else {
                     handleHttpException(error);
@@ -130,8 +131,8 @@ const migrateIdentityAttributeConfig = async apiConfig => {
             if (!currentTargetIdentityAttribute) {
                 winston.info(`Creating new identity attribute for: ${localIdentityAttribute.name}`);
                 try {
-                    const createIdentityAttributeResponse = await identityAttributesApi.createIdentityAttribute({
-                        identityAttributeBeta: {
+                    const createIdentityAttributeResponse = await identityAttributesApi.createIdentityAttributeV1({
+                        identityAttribute2: {
                             name: localIdentityAttribute.name,
                             displayName: localIdentityAttribute.displayName,
                             multi: localIdentityAttribute.multi,
@@ -151,9 +152,9 @@ const migrateIdentityAttributeConfig = async apiConfig => {
 
                 //Update the identity attribute with all config, references, etc.
                 try {
-                    await identityAttributesApi.putIdentityAttribute({
+                    await identityAttributesApi.putIdentityAttributeV1({
                         name: localIdentityAttribute.name,
-                        identityAttributeBeta: {
+                        identityAttribute2: {
                             name: localIdentityAttribute.name,
                             displayName: localIdentityAttribute.displayName,
                             multi: localIdentityAttribute.multi,
@@ -184,7 +185,7 @@ const migrateIdentityProfile = async (apiConfig, identityProfileJson) => {
 
     //Check and see if an identity profile with this name already exists in the target environment
     let currentIdentityProfileResponse = await identityProfilesApi
-        .exportIdentityProfiles({
+        .exportIdentityProfilesV1({
             filters: `name eq "${localIdentityProfile.object.name}"`,
         })
         .catch(error => {
@@ -213,7 +214,7 @@ const migrateIdentityProfile = async (apiConfig, identityProfileJson) => {
     //Lookup target source. The source name in identity profiles is the backend app name with [source]
     const sourceLookupName = localIdentityProfile.object.authoritativeSource.name.replaceAll(" [source]", "").trim();
     const targetSourceResponse = await sourcesApi
-        .listSources({
+        .listSourcesV1({
             filters: `name eq "${sourceLookupName}"`,
             limit: 1,
         })
@@ -241,7 +242,7 @@ const migrateIdentityProfile = async (apiConfig, identityProfileJson) => {
                 ? transformDefinition.attributes.sourceName
                 : transformDefinition.attributes.input.attributes.sourceName;
             const mappingSourceResponse = await sourcesApi
-                .listSources({
+                .listSourcesV1({
                     filters: `name eq "${mappingSourceName}"`,
                     limit: 1,
                 })
@@ -263,7 +264,7 @@ const migrateIdentityProfile = async (apiConfig, identityProfileJson) => {
         } else if (transformDefinitonType === "rule") {
             const ruleName = transformDefinition.attributes.name;
 
-            //OOTB rules don't export so we we might not always find these, but name just name reference seems to work here
+            //OOTB rules don't export so we we might not always find these, but just name reference seems to work here
             for (const rule of rules) {
                 if (rule.self.name === ruleName) {
                     attributeMapping.transformDefinition.attributes.id = rule.self.id;
@@ -281,7 +282,7 @@ const migrateIdentityProfile = async (apiConfig, identityProfileJson) => {
      */
     let importResponse;
     try {
-        importResponse = await identityProfilesApi.importIdentityProfiles({
+        importResponse = await identityProfilesApi.importIdentityProfilesV1({
             identityProfileExportedObject: [localIdentityProfile],
         });
 
@@ -295,7 +296,7 @@ const migrateIdentityProfile = async (apiConfig, identityProfileJson) => {
 
     //We need to fetch it now since it's not returned in the response
     try {
-        currentIdentityProfileResponse = await identityProfilesApi.exportIdentityProfiles({
+        currentIdentityProfileResponse = await identityProfilesApi.exportIdentityProfilesV1({
             filters: `name eq "${localIdentityProfile.object.name}"`,
         });
         currentTargetIdentityProfile =
@@ -322,7 +323,7 @@ const migrateIdentityProfile = async (apiConfig, identityProfileJson) => {
 
         //Get current lifecycle states if any
         const currentTargetLifecycleStatesResponse = await lifecycleStateApi
-            .getLifecycleStates({
+            .getLifecycleStatesV1({
                 identityProfileId: currentTargetIdentityProfile.self.id,
             })
             .catch(error => {
@@ -438,7 +439,7 @@ const migrateIdentityProfile = async (apiConfig, identityProfileJson) => {
                             winston.info(
                                 `Updating existing lifecycle state: ${currentTargetLifecycleState.technicalName} (${currentTargetLifecycleState.id})`
                             );
-                            await lifecycleStateApi.updateLifecycleStates({
+                            await lifecycleStateApi.updateLifecycleStatesV1({
                                 identityProfileId: currentTargetIdentityProfile.self.id,
                                 lifecycleStateId: currentTargetLifecycleState.id,
                                 jsonPatchOperation: patchOperations,
@@ -452,7 +453,7 @@ const migrateIdentityProfile = async (apiConfig, identityProfileJson) => {
             if (!existsInTarget) {
                 winston.info(`Creating new lifecycle state: ${localLifecycleState.name}`);
                 try {
-                    const createLifecycleStateResponse = await lifecycleStateApi.createLifecycleState({
+                    const createLifecycleStateResponse = await lifecycleStateApi.createLifecycleStateV1({
                         identityProfileId: currentTargetIdentityProfile.self.id,
                         lifecycleState: localLifecycleState,
                     });

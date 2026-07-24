@@ -10,13 +10,19 @@ const ACCESS_REQUEST_CONFIG = "ACCESS_REQUEST_CONFIG";
 const exportAccessRequestConfig = async apiConfig => {
     winston.info(clc.bgBlueBright("Starting Access Request Configuration Export"));
     const accessRequestApi = new AccessRequestsApi(apiConfig);
-    const accessRequestConfigResponse = await accessRequestApi.getAccessRequestConfig().catch(error => {
-        handleHttpException(error);
-    });
+    const accessRequestConfigResponse = await accessRequestApi
+        .getAccessRequestConfigV2({
+            headers: {
+                "X-SailPoint-Experimental": "true",
+            },
+        })
+        .catch(error => {
+            handleHttpException(error);
+        });
     let accessRequestConfig = accessRequestConfigResponse.data;
 
     //Update fallbackApproverRef.name to alias for lookup when migrating
-    if (accessRequestConfig.approvalReminderAndEscalationConfig.fallbackApproverRef) {
+    if (accessRequestConfig?.approvalReminderAndEscalationConfig?.fallbackApproverRef) {
         const owner = await getIdentityById(
             apiConfig,
             accessRequestConfig.approvalReminderAndEscalationConfig.fallbackApproverRef.id
@@ -52,7 +58,7 @@ const updateAccessRequestConfig = async apiConfig => {
         const accessRequestApi = new AccessRequestsApi(apiConfig);
 
         //If fallback approver exists, perform lookup
-        let fallBackApproverRef = localAccessRequestConfig.approvalReminderAndEscalationConfig.fallbackApproverRef;
+        let fallBackApproverRef = localAccessRequestConfig?.approvalReminderAndEscalationConfig?.fallbackApproverRef;
         if (fallBackApproverRef) {
             //Looks up fallback approver identity by tokenized alias
             const targetFallbackApprover = await getIdentityByAlias(apiConfig, fallBackApproverRef.name);
@@ -63,8 +69,9 @@ const updateAccessRequestConfig = async apiConfig => {
             localAccessRequestConfig.approvalReminderAndEscalationConfig.fallbackApproverRef = fallBackApproverRef;
         }
 
-        //Workgroup/governance group looksups for approvals (i.e. "grantRequestApprovalSchemes": "entitlementOwner,workgroup: cf45f919-8b05-4848-87e1-10270704a495"))
-        let grantRequestApprovalSchemes = localAccessRequestConfig.entitlementRequestConfig.grantRequestApprovalSchemes;
+        //Workgroup/governance group lookups for approvals (i.e. "grantRequestApprovalSchemes": "entitlementOwner,workgroup: cf45f919-8b05-4848-87e1-10270704a495"))
+        let grantRequestApprovalSchemes =
+            localAccessRequestConfig?.entitlementRequestConfig?.grantRequestApprovalSchemes;
         if (grantRequestApprovalSchemes && grantRequestApprovalSchemes.includes("workgroup:")) {
             const startIndex = grantRequestApprovalSchemes.indexOf("workgroup:") + "workgroup:".length;
             const endIndex =
@@ -78,10 +85,18 @@ const updateAccessRequestConfig = async apiConfig => {
             localAccessRequestConfig.entitlementRequestConfig.grantRequestApprovalSchemes = grantRequestApprovalSchemes;
         }
 
+        winston.debug(`Deploying Access Request Configuration: ${JSON.stringify(localAccessRequestConfig, null, 4)}`);
         const accessRequestConfigResponse = await accessRequestApi
-            .setAccessRequestConfig({
-                accessRequestConfig: localAccessRequestConfig,
-            })
+            .setAccessRequestConfigV2(
+                {
+                    accessRequestConfig2: localAccessRequestConfig,
+                },
+                {
+                    headers: {
+                        "X-SailPoint-Experimental": "true",
+                    },
+                }
+            )
             .catch(error => {
                 handleHttpException(error);
             });

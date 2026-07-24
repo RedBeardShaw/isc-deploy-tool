@@ -3,7 +3,7 @@ import * as crypto from "crypto";
 import * as fs from "fs";
 import { JSONPath } from "jsonpath-plus";
 import _ from "lodash";
-import { SPConfigBetaApi } from "sailpoint-api-client";
+import { SPConfigApi } from "sailpoint-api-client";
 import winston from "winston";
 import { default as exportConfig } from "../export-config.js";
 import { default as exportIgnore } from "../export-ignore.js";
@@ -443,12 +443,12 @@ const buildSpConfigDeploymentFile = async (directoryToBuildFrom = "./build/confi
 
 const runSpConfigExport = async (apiConfig, exportConfig) => {
     winston.info(clc.green("SP-Config export started"));
-    const spConfigApi = new SPConfigBetaApi(apiConfig);
+    const spConfigApi = new SPConfigApi(apiConfig);
 
     let jobId;
     try {
-        const startExportResponse = await spConfigApi.exportSpConfig({
-            exportPayloadBeta: JSON.stringify(exportConfig),
+        const startExportResponse = await spConfigApi.exportSpConfigV1({
+            exportPayload: JSON.stringify(exportConfig),
         });
         jobId = startExportResponse.data.jobId;
         winston.debug(`SP-Config Export jobId: ${jobId}`);
@@ -464,14 +464,17 @@ const runSpConfigExport = async (apiConfig, exportConfig) => {
     const checkStatus = async () => {
         while (true) {
             try {
-                const currentStatusResponse = await spConfigApi.getSpConfigExportStatus({ id: jobId });
+                const currentStatusResponse = await spConfigApi.getSpConfigExportStatusV1({ id: jobId });
                 winston.debug(
                     `Current SP-Config export status for jobId [${jobId}]:\n${JSON.stringify(currentStatusResponse.data, null, 4)}`
                 );
                 if (currentStatusResponse.data.status === "COMPLETE") {
                     winston.info(clc.green("SP-Config export completed"));
                     break;
-                } else if (currentStatusResponse.data.status === "IN_PROGRESS") {
+                } else if (
+                    currentStatusResponse.data.status === "IN_PROGRESS" ||
+                    currentStatusResponse.data.status === "NOT_STARTED"
+                ) {
                     winston.info(`SP-Config export job [${jobId}] still in progress...`);
                     await delay(2000); // Wait before checking the status again
                 } else if (
@@ -499,7 +502,7 @@ const runSpConfigExport = async (apiConfig, exportConfig) => {
     //Continue to get result if we actually have a jobId
     if (jobId) {
         try {
-            const exportResponse = await spConfigApi.getSpConfigExport({ id: jobId });
+            const exportResponse = await spConfigApi.getSpConfigExportV1({ id: jobId });
             winston.debug(`SP-Config export full response:\n${JSON.stringify(exportResponse.data, null, 4)}`);
             return exportResponse.data.objects;
         } catch (error) {
@@ -510,7 +513,7 @@ const runSpConfigExport = async (apiConfig, exportConfig) => {
 
 const runSpConfigImport = async (apiConfig, importObj) => {
     winston.info(clc.green("SP-Config import started"));
-    let spConfigApi = new SPConfigBetaApi(apiConfig);
+    let spConfigApi = new SPConfigApi(apiConfig);
 
     const jsonString = JSON.stringify(importObj);
     const blobPayload = new Blob([jsonString], {
@@ -519,7 +522,7 @@ const runSpConfigImport = async (apiConfig, importObj) => {
 
     let jobId;
     try {
-        const startImportResponse = await spConfigApi.importSpConfig({ data: blobPayload });
+        const startImportResponse = await spConfigApi.importSpConfigV1({ data: blobPayload });
         jobId = startImportResponse.data.jobId;
         winston.debug(`SP-Config import jobId: ${jobId}`);
     } catch (error) {
@@ -534,14 +537,17 @@ const runSpConfigImport = async (apiConfig, importObj) => {
     const checkStatus = async () => {
         while (true) {
             try {
-                const currentStatusResponse = await spConfigApi.getSpConfigImportStatus({ id: jobId });
+                const currentStatusResponse = await spConfigApi.getSpConfigImportStatusV1({ id: jobId });
                 winston.debug(
                     `Current SP-Config import status for jobId [${jobId}]:\n${JSON.stringify(currentStatusResponse.data, null, 4)}`
                 );
                 if (currentStatusResponse.data.status === "COMPLETE") {
                     winston.info(clc.green("SP-Config import completed"));
                     break;
-                } else if (currentStatusResponse.data.status === "IN_PROGRESS") {
+                } else if (
+                    currentStatusResponse.data.status === "IN_PROGRESS" ||
+                    currentStatusResponse.data.status === "NOT_STARTED"
+                ) {
                     winston.info(`SP-Config import job [${jobId}] still in progress...`);
                     await delay(2000); // Wait before checking the status again
                 } else if (
@@ -569,7 +575,7 @@ const runSpConfigImport = async (apiConfig, importObj) => {
     //Continue to get result if we actually have a jobId
     if (jobId) {
         try {
-            const importResponse = await spConfigApi.getSpConfigImport({ id: jobId });
+            const importResponse = await spConfigApi.getSpConfigImportV1({ id: jobId });
             winston.debug(`SP-Config import full response:\n${JSON.stringify(importResponse.data, null, 4)}`);
             return importResponse;
         } catch (error) {

@@ -29,7 +29,7 @@ const exportServiceDeskIntegrations = async apiConfig => {
 
     const serviceDeskIntegrationsResponse = await Paginator.paginate(
         serviceDeskIntegrationApi,
-        serviceDeskIntegrationApi.getServiceDeskIntegrations,
+        serviceDeskIntegrationApi.getServiceDeskIntegrationsV1,
         undefined,
         250
     ).catch(error => {
@@ -100,7 +100,7 @@ const migrateServiceDeskIntegration = async (apiConfig, serviceDeskIntegrationJs
 
     //Check and see if a source with this name already exists in the target environment
     const currentServiceDeskIntegrationResponse = await serviceDeskIntegrationApi
-        .getServiceDeskIntegrations({
+        .getServiceDeskIntegrationsV1({
             filters: `name eq "${localServiceDeskIntegration.name}"`,
             limit: 1,
         })
@@ -116,18 +116,20 @@ const migrateServiceDeskIntegration = async (apiConfig, serviceDeskIntegrationJs
         winston.info(`Creating new service desk integration: ${localServiceDeskIntegration.name}`);
 
         try {
-            const createServiceDeskIntegrationResponse = await serviceDeskIntegrationApi.createServiceDeskIntegration({
-                serviceDeskIntegrationDto: {
-                    name: localServiceDeskIntegration.name,
-                    description: localServiceDeskIntegration.description,
-                    type: localServiceDeskIntegration.type,
-                    attributes: localServiceDeskIntegration.attributes,
-                    beforeProvisioningRule: localServiceDeskIntegration.beforeProvisioningRule,
-                    clusterRef: localServiceDeskIntegration.clusterRef,
-                    ownerRef: localServiceDeskIntegration.ownerRef,
-                    provisioningConfig: localServiceDeskIntegration.provisioningConfig,
-                },
-            });
+            const createServiceDeskIntegrationResponse = await serviceDeskIntegrationApi.createServiceDeskIntegrationV1(
+                {
+                    serviceDeskIntegrationDto: {
+                        name: localServiceDeskIntegration.name,
+                        description: localServiceDeskIntegration.description,
+                        type: localServiceDeskIntegration.type,
+                        attributes: localServiceDeskIntegration.attributes,
+                        beforeProvisioningRule: localServiceDeskIntegration.beforeProvisioningRule,
+                        clusterRef: localServiceDeskIntegration.clusterRef,
+                        ownerRef: localServiceDeskIntegration.ownerRef,
+                        provisioningConfig: localServiceDeskIntegration.provisioningConfig,
+                    },
+                }
+            );
 
             currentTargetServiceDeskIntegration = createServiceDeskIntegrationResponse.data;
         } catch (error) {
@@ -154,7 +156,7 @@ const migrateServiceDeskIntegration = async (apiConfig, serviceDeskIntegrationJs
         }
 
         try {
-            await serviceDeskIntegrationApi.putServiceDeskIntegration({
+            await serviceDeskIntegrationApi.putServiceDeskIntegrationV1({
                 id: currentTargetServiceDeskIntegration.id,
                 serviceDeskIntegrationDto: {
                     name: localServiceDeskIntegration.name,

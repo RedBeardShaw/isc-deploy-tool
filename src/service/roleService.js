@@ -15,7 +15,7 @@ const existingAttributeToKeep = ["id"];
 
 const getRoleById = async (apiConfig, roleId) => {
     const rolesApi = new RolesApi(apiConfig);
-    const role = await rolesApi.getRole({
+    const role = await rolesApi.getRoleV1({
         id: roleId,
     });
 
@@ -28,7 +28,7 @@ const getRoleById = async (apiConfig, roleId) => {
 
 const getRoleByName = async (apiConfig, roleName) => {
     const rolesApi = new RolesApi(apiConfig);
-    const roleResponse = await rolesApi.listRoles({
+    const roleResponse = await rolesApi.listRolesV1({
         filters: `name eq "${roleName}"`,
         limit: 1,
     });
@@ -73,7 +73,7 @@ const updateMembershipChildren = async (apiConfig, children, isExport) => {
 const exportRoles = async apiConfig => {
     winston.info(clc.bgBlueBright("Starting Role Export"));
     const rolesApi = new RolesApi(apiConfig);
-    const roles = await Paginator.paginate(rolesApi, rolesApi.listRoles, undefined, 250).catch(error => {
+    const roles = await Paginator.paginate(rolesApi, rolesApi.listRolesV1, undefined, 250).catch(error => {
         handleHttpException(error);
     });
 
@@ -246,7 +246,7 @@ const migrateRole = async (apiConfig, roleJson) => {
 
     //Check if the role already exists
     const currentRoleResponse = await rolesApi
-        .listRoles({
+        .listRolesV1({
             filters: `name eq "${localRole.name}"`,
         })
         .catch(error => {
@@ -257,7 +257,7 @@ const migrateRole = async (apiConfig, roleJson) => {
     if (!currentTargetRole) {
         winston.info(`Creating new role: ${localRole.name}`);
         try {
-            const createRoleResponse = await rolesApi.createRole({
+            const createRoleResponse = await rolesApi.createRoleV1({
                 role: localRole,
             });
             currentTargetRole = createRoleResponse.data;
@@ -338,7 +338,7 @@ const migrateRole = async (apiConfig, roleJson) => {
 
         // perform the update
         try {
-            await rolesApi.patchRole({
+            await rolesApi.patchRoleV1({
                 id: currentTargetRole.id,
                 jsonPatchOperation: patchOperations,
             });

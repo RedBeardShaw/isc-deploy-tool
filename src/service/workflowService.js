@@ -1,7 +1,7 @@
 import clc from "cli-color";
 import * as fs from "fs";
 import _ from "lodash";
-import { LaunchersBetaApi, Paginator, WorkflowsApi, WorkflowsBetaApi } from "sailpoint-api-client";
+import { LaunchersApi, Paginator, WorkflowsApi } from "sailpoint-api-client";
 import winston from "winston";
 import { handleHttpException, replaceKeyValues, sleep, walk, writeConfigFile } from "../util.js";
 import { getFormById, getFormByName } from "./formService.js";
@@ -18,7 +18,7 @@ const getWorkflowById = async (apiConfig, workflowId) => {
 
     const workflowsApi = new WorkflowsApi(apiConfig);
     const workflowResponse = await workflowsApi
-        .getWorkflow({
+        .getWorkflowV1({
             id: workflowId,
         })
         .catch(error => {
@@ -36,7 +36,7 @@ const getWorkflowById = async (apiConfig, workflowId) => {
 // api doesn't support a filter so we have to do this very unoptimized and filter the list of all workflows in memory
 const getWorkflowByName = async (apiConfig, workflowName) => {
     const workflowsApi = new WorkflowsApi(apiConfig);
-    const workflows = await Paginator.paginate(workflowsApi, workflowsApi.listWorkflows, undefined, 250).catch(
+    const workflows = await Paginator.paginate(workflowsApi, workflowsApi.listWorkflowsV1, undefined, 250).catch(
         error => {
             handleHttpException(error);
         }
@@ -74,7 +74,7 @@ const fetchParameterStorageIdReplacement = async (currentValue, apiConfig) => {
 const exportWorkflows = async apiConfig => {
     winston.info(clc.bgBlueBright("Starting Workflow Export"));
     const workflowsApi = new WorkflowsApi(apiConfig);
-    const workflows = await Paginator.paginate(workflowsApi, workflowsApi.listWorkflows, undefined, 250).catch(
+    const workflows = await Paginator.paginate(workflowsApi, workflowsApi.listWorkflowsV1, undefined, 250).catch(
         error => {
             handleHttpException(error);
         }
@@ -158,8 +158,7 @@ const exportWorkflows = async apiConfig => {
 };
 
 const migrateWorkflow = async (apiConfig, workflowJson) => {
-    //Using /beta/workflows here because /v3 seems to fail for no reason
-    const workflowsApi = new WorkflowsBetaApi(apiConfig);
+    const workflowsApi = new WorkflowsApi(apiConfig);
     let localWorkflow = JSON.parse(workflowJson);
 
     //Get corresponding owner by name and add id
@@ -168,7 +167,7 @@ const migrateWorkflow = async (apiConfig, workflowJson) => {
 
     //Check and see if a workflow with this name already exists in the target environment
     //Current List Workflows endpoint does not allow filtering, so need to iterate all workflows
-    const currentWorkflowsResponse = await workflowsApi.listWorkflows();
+    const currentWorkflowsResponse = await workflowsApi.listWorkflowsV1();
     let currentTargetWorkflow;
     for (const currentWorkflow of currentWorkflowsResponse.data) {
         if (currentWorkflow.name === localWorkflow.name) {
@@ -204,8 +203,8 @@ const migrateWorkflow = async (apiConfig, workflowJson) => {
         winston.info(`Creating new workflow: ${localWorkflow.name}`);
 
         try {
-            const createWorkflowResponse = await workflowsApi.createWorkflow({
-                createWorkflowRequestBeta: {
+            const createWorkflowResponse = await workflowsApi.createWorkflowV1({
+                createWorkflowV1Request: {
                     name: localWorkflow.name,
                     owner: localWorkflow.owner,
                     definition: localWorkflow.definition,
@@ -224,9 +223,9 @@ const migrateWorkflow = async (apiConfig, workflowJson) => {
                 );
                 //Patch workflow to update the filter
                 try {
-                    await workflowsApi.patchWorkflow({
+                    await workflowsApi.patchWorkflowV1({
                         id: currentTargetWorkflow.id,
-                        jsonPatchOperationBeta: [
+                        jsonPatchOperation: [
                             {
                                 op: "replace",
                                 path: "/trigger/attributes/filter.$",
@@ -238,12 +237,12 @@ const migrateWorkflow = async (apiConfig, workflowJson) => {
                     await handleHttpException(error);
                 }
 
-                //Create the interactive trigger entitlement via beta/launchers (only for new, assume it exists if workflow is updated)
+                //Create the interactive trigger entitlement via /launchers (only for new, assume it exists if workflow is updated)
                 winston.info(`Creating interactive trigger entitlement for new workflow: ${localWorkflow.name}`);
-                const launchersApi = new LaunchersBetaApi(apiConfig);
+                const launchersApi = new LaunchersApi(apiConfig);
                 try {
-                    await launchersApi.createLauncher({
-                        launcherRequestBeta: {
+                    await launchersApi.createLauncherV1({
+                        launcherRequest: {
                             config: "{}",
                             description: localWorkflow.description,
                             disabled: true,
@@ -274,9 +273,9 @@ const migrateWorkflow = async (apiConfig, workflowJson) => {
 
                 //Patch workflow to update the url
                 try {
-                    await workflowsApi.patchWorkflow({
+                    await workflowsApi.patchWorkflowV1({
                         id: currentTargetWorkflow.id,
-                        jsonPatchOperationBeta: [
+                        jsonPatchOperation: [
                             {
                                 op: "replace",
                                 path: "/trigger/attributes/url",
@@ -295,9 +294,9 @@ const migrateWorkflow = async (apiConfig, workflowJson) => {
                 await sleep(1000);
                 //Patch workflow to disable so we can update
                 try {
-                    await workflowsApi.patchWorkflow({
+                    await workflowsApi.patchWorkflowV1({
                         id: currentTargetWorkflow.id,
-                        jsonPatchOperationBeta: [
+                        jsonPatchOperation: [
                             {
                                 op: "replace",
                                 path: "/enabled",
@@ -327,9 +326,9 @@ const migrateWorkflow = async (apiConfig, workflowJson) => {
             winston.warn("Workflow is enabled, disabling it to allow modification");
             //Patch workflow to disable so we can update
             try {
-                await workflowsApi.patchWorkflow({
+                await workflowsApi.patchWorkflowV1({
                     id: currentTargetWorkflow.id,
-                    jsonPatchOperationBeta: [
+                    jsonPatchOperation: [
                         {
                             op: "replace",
                             path: "/enabled",
@@ -368,9 +367,9 @@ const migrateWorkflow = async (apiConfig, workflowJson) => {
         //Update the workflow with all config, references, etc.
         winston.debug(`Patching workflow with body: ${JSON.stringify(localWorkflow, null, 4)}`);
         try {
-            await workflowsApi.putWorkflow({
+            await workflowsApi.putWorkflowV1({
                 id: localWorkflow.id,
-                workflowBodyBeta: localWorkflow,
+                workflowBody: localWorkflow,
             });
         } catch (error) {
             await handleHttpException(error);

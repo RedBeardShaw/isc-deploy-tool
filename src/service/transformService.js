@@ -11,7 +11,7 @@ const existingAttributeToKeep = ["id"];
 const exportTransforms = async apiConfig => {
     winston.info(clc.bgBlueBright("Starting Transform Export"));
     const transformsApi = new TransformsApi(apiConfig);
-    const transforms = await Paginator.paginate(transformsApi, transformsApi.listTransforms, undefined, 250).catch(
+    const transforms = await Paginator.paginate(transformsApi, transformsApi.listTransformsV1, undefined, 250).catch(
         error => {
             handleHttpException(error);
         }
@@ -31,7 +31,7 @@ const migrateTransform = async (apiConfig, transformJson) => {
 
     //Check and see if a transform with this name already exists in the target environment
     const currentTransformResponse = await transformApi
-        .listTransforms({
+        .listTransformsV1({
             filters: `name eq "${localTransform.name}"`,
         })
         .catch(error => {
@@ -42,7 +42,7 @@ const migrateTransform = async (apiConfig, transformJson) => {
     if (!currentTargetTransform) {
         winston.info(`Creating new transform: ${localTransform.name}`);
         try {
-            const createTransformResponse = await transformApi.createTransform({
+            const createTransformResponse = await transformApi.createTransformV1({
                 transform: localTransform,
             });
             currentTargetTransform = createTransformResponse.data;
@@ -59,7 +59,7 @@ const migrateTransform = async (apiConfig, transformJson) => {
 
         //Update the transform with all config, references, etc.
         try {
-            await transformApi.updateTransform({
+            await transformApi.updateTransformV1({
                 id: currentTargetTransform.id,
                 transform: localTransform,
             });

@@ -1,6 +1,6 @@
 import clc from "cli-color";
 import * as fs from "fs";
-import { CustomPasswordInstructionsBetaApi } from "sailpoint-api-client";
+import { CustomPasswordInstructionsApi } from "sailpoint-api-client";
 import winston from "winston";
 import { handleHttpException, walk, writeConfigFile } from "../util.js";
 
@@ -27,20 +27,28 @@ const exportPasswordInstructions = async apiConfig => {
      * There is no endpoint for getting all custom password instructions, so we need to
      * pass each available pageId one by one and whatever one does not return a 404 can
      * be written as a config file. If custom customInstructionsEnabled is not enabled via
-     * beta/password-org-config, then we will get a 400 for all of them which we also account for
+     * /password-org-config, then we will get a 400 for all of them which we also account for
      *
      */
-    const customPasswordInstructionsApi = new CustomPasswordInstructionsBetaApi(apiConfig);
+    const customPasswordInstructionsApi = new CustomPasswordInstructionsApi(apiConfig);
     for (const pageId of availablePageIds) {
         try {
             const customPasswordInstructionsResponse =
-                await customPasswordInstructionsApi.getCustomPasswordInstructions({
-                    pageId: pageId,
-                });
+                await customPasswordInstructionsApi.getCustomPasswordInstructionsV1(
+                    {
+                        pageId: pageId,
+                    },
+                    {
+                        headers: {
+                            "X-SailPoint-Experimental": "true",
+                        },
+                    }
+                );
             winston.info(`Exporting Password Instruction for pageId: ${pageId}`);
             writeConfigFile(PASSWORD_INSTRUCTION, pageId, customPasswordInstructionsResponse.data);
         } catch (error) {
-            if (error.response.status !== 404 && error.response.status !== 400) {
+            const status = error?.status ?? error?.response?.status;
+            if (status !== 404 && status !== 400) {
                 handleHttpException(error);
             }
         }
@@ -49,7 +57,7 @@ const exportPasswordInstructions = async apiConfig => {
 
 const migratePasswordInstructions = async (apiConfig, targetEnvName) => {
     winston.info(clc.bgBlueBright("Starting Password Instruction Deployment"));
-    const customPasswordInstructionsApi = new CustomPasswordInstructionsBetaApi(apiConfig);
+    const customPasswordInstructionsApi = new CustomPasswordInstructionsApi(apiConfig);
     const passwordInstructionFilePaths = walk("./build/config/PASSWORD_INSTRUCTION");
 
     for (const passwordInstructionFilePath of passwordInstructionFilePaths) {
@@ -59,8 +67,8 @@ const migratePasswordInstructions = async (apiConfig, targetEnvName) => {
         winston.info(`Updating Password Instruction for pageId: ${localPasswordInstructionSource.pageId}`);
 
         try {
-            await customPasswordInstructionsApi.createCustomPasswordInstructions({
-                customPasswordInstructionBeta: localPasswordInstructionSource,
+            await customPasswordInstructionsApi.createCustomPasswordInstructionsV1({
+                customPasswordInstruction: localPasswordInstructionSource,
             });
         } catch (error) {
             handleHttpException(error);

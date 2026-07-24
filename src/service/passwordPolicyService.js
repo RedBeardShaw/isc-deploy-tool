@@ -15,7 +15,7 @@ const getAllPasswordPolicies = async apiConfig => {
     const passwordPoliciesApi = new PasswordPoliciesApi(apiConfig);
     const passwordPoliciesResponse = await Paginator.paginate(
         passwordPoliciesApi,
-        passwordPoliciesApi.listPasswordPolicies,
+        passwordPoliciesApi.listPasswordPoliciesV1,
         undefined,
         250
     ).catch(error => {
@@ -33,7 +33,7 @@ const exportPasswordPolicies = async apiConfig => {
     const passwordPoliciesApi = new PasswordPoliciesApi(apiConfig);
     const passwordPoliciesResponse = await Paginator.paginate(
         passwordPoliciesApi,
-        passwordPoliciesApi.listPasswordPolicies,
+        passwordPoliciesApi.listPasswordPoliciesV1,
         undefined,
         250
     ).catch(error => {
@@ -54,7 +54,7 @@ const migratePasswordPolicy = async (apiConfig, passwordPolicyJson) => {
     let currentTargetPasswordPolicy;
     const currentPasswordPoliciesResponse = await Paginator.paginate(
         passwordPoliciesApi,
-        passwordPoliciesApi.listPasswordPolicies,
+        passwordPoliciesApi.listPasswordPoliciesV1,
         undefined,
         250
     ).catch(error => {
@@ -69,7 +69,7 @@ const migratePasswordPolicy = async (apiConfig, passwordPolicyJson) => {
     if (!currentTargetPasswordPolicy) {
         winston.info(`Creating new password policy: ${localPasswordPolicy.name}`);
         try {
-            const createPasswordPolicyResponse = await passwordPoliciesApi.createPasswordPolicy({
+            const createPasswordPolicyResponse = await passwordPoliciesApi.createPasswordPolicyV1({
                 passwordPolicyV3Dto: localPasswordPolicy,
             });
             currentTargetPasswordPolicy = createPasswordPolicyResponse.data;
@@ -88,7 +88,7 @@ const migratePasswordPolicy = async (apiConfig, passwordPolicyJson) => {
 
         //Update the password policy with all config, references, etc.
         try {
-            const res = await passwordPoliciesApi.setPasswordPolicy({
+            const res = await passwordPoliciesApi.setPasswordPolicyV1({
                 id: currentTargetPasswordPolicy.id,
                 passwordPolicyV3Dto: localPasswordPolicy,
             });

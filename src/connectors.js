@@ -46,7 +46,8 @@ const buildAndDeployConnectors = async apiConfig => {
                         `Connector by alias [${connectorDirAlias}] already exists with id: ${lookupResponse.data.id}`
                     );
                 } catch (error) {
-                    if (error.response.status === 404) {
+                    const status = error?.status ?? error?.response?.status;
+                    if (status === 404) {
                         winston.debug(`Connector by alias [${connectorDirAlias}] does not exist yet, creating it`);
                         try {
                             const createResponse = await axios.request({
