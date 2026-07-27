@@ -77,7 +77,7 @@ The following object types are currently supported for export/deploy:
 - CONNECTOR_RULE
 - TRANSFORM
 - SOURCE
-    - Includes correlation config, schemas, provisioning policies, aggregation schedules, native change detection, machine classification/mapping/subtype configs and referenced connector libraries (i.e. JDBC JAR files). **Does not include password policy references**
+    - Includes correlation config, schemas, provisioning policies, aggregation schedules, native change detection, machine classification/mapping/subtype configs and referenced connector libraries (i.e. JDBC JAR files)
     - Custom SaaS connectors can also be compiled for custom SaaS sources
 - SERVICE_DESK_INTEGRATION
 - IDENTITY_OBJECT_CONFIG
@@ -516,6 +516,5 @@ Most of the more detailed logging (HTTP requests, etc. is available at the `debu
 
 ## Known Issues/Limitations
 
-- Password policies themselves will be exported/deployed, but their references to sources cannot be automated at this time. The beta API endpoint is not documented so it's not in the SDK. A future enhancement could fix this once SailPoint includes the endpoint in the SDK
 - When objects are exported and saved to a file, the file name becomes the name of the object. Any special characters not allowed in file names will be replaced with a dash (`-`)
-- Workflow secrets such as OAuth client secrets cannot be converted to the proper secret pointers as the endpoint requires a browser JWT token
+- Workflow secrets such as OAuth client secrets cannot be converted to the proper secret pointers as the endpoint requires a browser JWT token (this is only for legacy v2 API calls in workflow. v3 calls can use parameter storage)

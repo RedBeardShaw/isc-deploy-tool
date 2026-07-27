@@ -33,7 +33,6 @@ const existingAttributeToKeep = [
     "id",
     "authoritative",
     "connectorAttributes.cloudExternalId",
-    "passwordPolicies",
     "connectorAttributes.healthy",
     "healthy",
     "connectorAttributes.slpt-source-diagnostics",
@@ -487,22 +486,35 @@ const migrateSource = async (apiConfig, sourceJson, skipConnectorLib) => {
         }
 
         //Password Policy References - we can't filter by name in API so need to iterate each and check
-        /* This doesn't actually work for whatever reason, if you attach a policy in the UI, it uses
-        PATCH /beta/sources/:id/password-policies which is not a documented endpoint so there is no
-        function for it in the SDK right now, so leaving it out until that becomes available
         if (localSource.passwordPolicies) {
             const currentTargetPasswordPolicies = await getAllPasswordPolicies(apiConfig);
             if (currentTargetPasswordPolicies) {
                 for (let localSourcePolicy of localSource.passwordPolicies) {
                     for (const currentTargetPasswordPolicy of currentTargetPasswordPolicies) {
                         if (currentTargetPasswordPolicy.name === localSourcePolicy.name) {
+                            winston.info(
+                                `Setting password policy reference on source: ${currentTargetPasswordPolicy.name} (${currentTargetPasswordPolicy.id})`
+                            );
                             localSourcePolicy.id = currentTargetPasswordPolicy.id;
+                            sourcesApi
+                                .updatePasswordPolicyHoldersV1({
+                                    sourceId: currentTargetSource.id,
+                                    passwordPolicyHoldersDtoInner: [
+                                        {
+                                            policyId: currentTargetPasswordPolicy.id,
+                                            policyName: currentTargetPasswordPolicy.name,
+                                            selectors: null,
+                                        },
+                                    ],
+                                })
+                                .catch(error => {
+                                    handleHttpException(error);
+                                });
                         }
                     }
                 }
             }
         }
-        */
 
         //Update all rule references
         const rules = await getAllRules(apiConfig);

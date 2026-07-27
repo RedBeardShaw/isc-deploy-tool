@@ -22,8 +22,20 @@ const sleep = ms => {
  * @param {Error} e The error which was caught
  */
 const handleHttpException = async e => {
+    const errorPayload = e?.response?.data ?? e?.data;
+    const formattedPayload =
+        errorPayload == null
+            ? ""
+            : typeof errorPayload === "string"
+              ? (await isJson(errorPayload))
+                  ? JSON.stringify(JSON.parse(errorPayload), null, 4)
+                  : errorPayload
+              : JSON.stringify(errorPayload, null, 4);
+
+    winston.error(clc.red(`Error while executing request:\n${e.message}\n${e}\n${formattedPayload}`));
+    /*
     if (e.response) {
-        if (await isJson(e.config.data)) {
+        if (await isJson(e?.config?.data)) {
             winston.error(
                 clc.red(
                     `Error while executing request:\nPath: ${e.request.method} ${e.request.path}\n${JSON.stringify(JSON.parse(e.config.data), null, 4)}\nStatus Code: ${e.response.status}\nResponse Data: ${JSON.stringify(e.response.data, null, 4)}`
@@ -37,8 +49,9 @@ const handleHttpException = async e => {
             );
         }
     } else {
-        winston.error(clc.red(`Generic error while executing request: ${e.message}\n${e.stack}`));
+        winston.error(clc.red(`Generic error while executing request: ${e.message}\n${e.data}\n${e.stack}`));
     }
+    */
     process.exit(1);
 };
 
