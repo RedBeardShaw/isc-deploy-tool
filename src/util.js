@@ -412,6 +412,8 @@ const buildObjectsForEnvironment = async env => {
                 //Stringify the value so it's escaped properly if a secret token or something
                 if (typeof tokenValue === "string") {
                     fileSource = fileSource.replaceAll(tokenName, escapeString(tokenValue));
+                } else if (Array.isArray(tokenValue) {
+                    fileSource = fileSource.replaceAll(`"${tokenName}"`, JSON.stringify(tokenValue));
                 } else {
                     fileSource = fileSource.replaceAll(tokenName, JSON.stringify(tokenValue));
                 }
