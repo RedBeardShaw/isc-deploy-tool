@@ -140,6 +140,16 @@ export default {
 export default {
     "%%AD_OWNER_ID%%": "ABCD1234",
     "%%AD_IQSERVICE_PORT%%": "888888",
+    "%%AD_GROUP_SEARCH_DNs%%": [
+            {
+                "searchDN": "DC=site1...",
+                "iterateSearchFilter": null
+            },
+            {
+                "searchDN": "DC=site2...",
+                "iterateSearchFilter": null
+            }
+        ]
 };
 ```
 
