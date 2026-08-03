@@ -412,7 +412,7 @@ const buildObjectsForEnvironment = async env => {
                 //Stringify the value so it's escaped properly if a secret token or something
                 if (typeof tokenValue === "string") {
                     fileSource = fileSource.replaceAll(tokenName, escapeString(tokenValue));
-                } else if (Array.isArray(tokenValue) {
+                } else if (Array.isArray(tokenValue)) {
                     const escapedTokenName = tokenName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
                     fileSource = fileSource.replace(
                         new RegExp(`"?${escapedTokenName}"?`, "g"),
